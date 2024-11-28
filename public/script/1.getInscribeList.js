@@ -9,18 +9,25 @@ require('dotenv').config();
 //   -H 'Authorization: Bearer f33696d36b4fe6c7d51b63187fc4a15014391a9b26c700473462b1de271ca141'
 
 async function getOrderDetails(orderId) {
-    try {
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2秒
 
-        // console.log(`${process.env.FRACTAL_URL}/v2/inscribe/order/${orderId}`);
-        const response = await axios.get(`${process.env.FRACTAL_URL}/v2/inscribe/order/${orderId}`, {
-            headers: {
-                'Authorization': `Bearer ${process.env.FRACTAL_TOKEN}`
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await axios.get(`${process.env.FRACTAL_URL}/v2/inscribe/order/${orderId}`, {
+                headers: {
+                    'Authorization': `Bearer ${process.env.FRACTAL_TOKEN}`
+                }
+            });
+            return response.data;
+        } catch (error) {
+            if (attempt === maxRetries) {
+                console.error(`获取订单 ${orderId} 详情失败 (最后一次尝试):`, error.message);
+                return null;
             }
-        });
-        return response.data;
-    } catch (error) {
-        console.error(`获取订单 ${orderId} 详情失败:`, error.message);
-        return null;
+            console.log(`获取订单 ${orderId} 详情失败 (第 ${attempt} 次尝试)，${retryDelay/1000}秒后重试...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
     }
 }
 
