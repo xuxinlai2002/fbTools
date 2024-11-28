@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>失败交易重试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .transaction-list {
+            margin: 20px 0;
+        }
+        .transaction-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        .success {
+            background-color: #dff0d8;
+        }
+        .failure {
+            background-color: #f2dede;
+        }
+    </style>
+</head>
+<body>
+    <h1>失败交易重试</h1>
+    
+    <div class="controls">
+        <button onclick="loadFailedTransactions()">刷新失败交易列表</button>
+        <button onclick="retrySelected()">重试选中交易</button>
+    </div>
+
+    <div class="transaction-list" id="transactionList">
+        <!-- 交易列表将在这里动态加载 -->
+    </div>
+
+    <script>
+        async function loadFailedTransactions() {
+            try {
+                const response = await fetch('/api/failed-transactions');
+                const transactions = await response.json();
+                displayTransactions(transactions);
+            } catch (error) {
+                console.error('加载失败交易失败:', error);
+                alert('加载失败交易时出错');
+            }
+        }
+
+        function displayTransactions(transactions) {
+            const container = document.getElementById('transactionList');
+            container.innerHTML = transactions.map((tx, index) => `
+                <div class="transaction-item" id="tx-${index}">
+                    <input type="checkbox" data-tx='${JSON.stringify(tx)}'>
+                    <span>索引: ${tx.index}</span>
+                    <span>地址: ${tx.address}</span>
+                    <span>金额: ${tx.amount}</span>
+                    <span>错误: ${tx.error}</span>
+                </div>
+            `).join('');
+        }
+
+        async function retrySelected() {
+            const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                .map(checkbox => JSON.parse(checkbox.dataset.tx));
+            
+            if (selected.length === 0) {
+                alert('请选择要重试的交易');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/retry-transfer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ transactions: selected })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    result.results.forEach(tx => {
+                        const element = document.querySelector(`[data-tx*="${tx.index}"]`)?.parentElement;
+                        if (element) {
+                            element.classList.add(tx.success ? 'success' : 'failure');
+                        }
+                    });
+                    
+                    setTimeout(loadFailedTransactions, 2000); // 2秒后刷新列表
+                } else {
+                    alert('重试过程中出现错误');
+                }
+            } catch (error) {
+                console.error('重试失败:', error);
+                alert('重试请求失败');
+            }
+        }
+
+        // 页面加载时自动加载失败交易
+        loadFailedTransactions();
+    </script>
+</body>
+</html> 

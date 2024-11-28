@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>BTC批量转账工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            margin-top: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin: 10px 0;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>BTC批量转账工具</h1>
+    <div class="container">
+        <button id="connectWallet">连接钱包</button>
+        <p id="walletStatus">钱包状态：未连接</p>
+        
+        <h3>批量转账地址和金额</h3>
+        <p>格式：每行一个转账，格式为 "地址,金额(BTC)"</p>
+        <textarea id="transferList" placeholder="例如：
+bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh,0.001
+bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh,0.002"></textarea>
+        
+        <button id="startTransfer">开始转账</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let connected = false;
+        let currentAccount = '';
+
+        async function connectWallet() {
+            try {
+                if (typeof window.unisat === 'undefined') {
+                    alert('请先安装UniSat钱包！');
+                    return;
+                }
+
+                const accounts = await window.unisat.requestAccounts();
+                currentAccount = accounts[0];
+                connected = true;
+                
+                const network = await window.unisat.getNetwork();
+                
+                document.getElementById('walletStatus').innerHTML = 
+                    `钱包状态：已连接<br>
+                    地址: ${currentAccount}<br>
+                    网络: ${network}`;
+            } catch (e) {
+                console.error(e);
+                alert('连接钱包失败：' + e.message);
+            }
+        }
+
+        async function startTransfer() {
+            if (!connected) {
+                alert('请先连接钱包！');
+                return;
+            }
+
+            const transferList = document.getElementById('transferList')
+                .value.trim().split('\n');
+            const status = document.getElementById('status');
+            
+            status.innerHTML = '';
+            
+            for (let i = 0; i < transferList.length; i++) {
+                const transfer = transferList[i];
+                const [address, amount] = transfer.split(',');
+                if (!address || !amount) continue;
+
+                try {
+                    status.innerHTML += 
+                        `<p>【${i + 1}/${transferList.length}】正在从 ${currentAccount} 转账 ${amount} BTC 到 ${address}...</p>`;
+                    
+                    const txid = await window.unisat.sendBitcoin(
+                        address.trim(),
+                        parseFloat(amount.trim()) * 100000000 // 转换为聪
+                    );
+                    
+                    status.innerHTML += 
+                        `<p style="color: green">【${i + 1}/${transferList.length}】转账成功！交易ID: ${txid}</p>`;
+                } catch (e) {
+                    status.innerHTML += 
+                        `<p style="color: red">【${i + 1}/${transferList.length}】转账失败：${e.message}</p>`;
+                }
+            }
+        }
+
+        document.getElementById('connectWallet').onclick = connectWallet;
+        document.getElementById('startTransfer').onclick = startTransfer;
+    </script>
+</body>
+</html> 
