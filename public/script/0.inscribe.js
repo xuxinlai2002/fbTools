@@ -70,7 +70,8 @@ async function main() {
     
     let outputData = [];
     let payData = [];
-    let hasError = false;  // 添加错误标记
+    let addressListData = [];
+    let hasError = false;
     
     console.log("processAddresses", processAddresses);
     // 处理每个地址
@@ -128,9 +129,9 @@ async function main() {
           console.log(`Amount: ${amount} satoshi (${btcAmount} BTC)`);
           console.log(`Order ID: ${orderId}`);
           
-          // 修改这里：使用固定金额 0.0011
           outputData.push(`${payAddress},0.0011,${orderId}`);
           payData.push(`${payAddress},0.0011`);
+          addressListData.push(payAddress);
         } else {
           console.error(`创建订单失败: ${JSON.stringify(respData)}`);
           hasError = true;  // 设置错误标记
@@ -156,12 +157,13 @@ async function main() {
       // 7. 写入文件
       fs.writeFileSync('./public/script/output.txt', outputData.join('\n'));
       fs.writeFileSync('./public/script/pay.txt', payData.join('\n'));
+      fs.writeFileSync('./public/script/addressList.txt', addressListData.join('\n'));
       
       // 输出处理信息
       console.log('处理完成！');
       console.log(`处理参数：startIndex=${inputStart}, inputNumber=${inputNumber || '全部'}`);
       console.log(`成功处理 ${outputData.length} 个地址`);
-      console.log('数据已写入 output.txt 和 pay.txt');
+      console.log('数据已写入 output.txt、pay.txt 和 addressList.txt');
     } else {
       console.log('处理过程中发生错误，没有数据被写入文件');
     }
