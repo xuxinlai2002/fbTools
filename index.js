@@ -14,16 +14,49 @@ let paymentData = [];
 // 添加读取pay.txt的函数
 async function loadPaymentData() {
     try {
-        const data = await fs.readFile('script/pay.txt', 'utf8');
-        paymentData = data.split('\n')
-            .filter(line => line.trim())
-            .map(line => {
+        const filePath = path.join(__dirname, 'public', 'script', 'pay.txt');
+        console.log('尝试读取文件:', filePath);
+        
+        // 检查文件是否存在
+        try {
+            await fs.access(filePath);
+            console.log('文件存在');
+        } catch (err) {
+            console.error('文件不存在:', err);
+            throw err;
+        }
+        
+        const data = await fs.readFile(filePath, 'utf8');
+        console.log('原始数据:', data); // 打印原始数据
+        
+        const lines = data.split('\n');
+        console.log('行数:', lines.length);
+        
+        paymentData = lines
+            .filter(line => {
+                const valid = line.trim().length > 0;
+                if (!valid) console.log('跳过空行');
+                return valid;
+            })
+            .map((line, index) => {
+                console.log(`处理第 ${index + 1} 行:`, line);
                 const [address, amount] = line.split(',');
-                return { address: address.trim(), amount: parseFloat(amount.trim()) };
+                if (!address || !amount) {
+                    console.log('无效的行格式:', line);
+                }
+                return {
+                    address: address.trim(),
+                    amount: parseFloat(amount.trim())
+                };
             });
+            
         console.log('支付数据加载成功，共 ' + paymentData.length + ' 条记录');
+        console.log('第一条数据:', paymentData[0]);
+        console.log('所有数据:', paymentData);
     } catch (error) {
         console.error('加载支付数据失败:', error);
+        console.error('当前工作目录:', process.cwd());
+        console.error('__dirname:', __dirname);
         throw error;
     }
 }
@@ -112,7 +145,31 @@ app.use('/api/transaction', (req, res, next) => {
     next();
 });
 
-// 修改转账处理路由，使用加载的支付数据
+// 添加删除支付数据的函数
+async function removePaymentData(index) {
+    try {
+        const filePath = path.join(__dirname, 'public', 'script', 'pay.txt');
+        // 读取当前文件内容
+        const data = await fs.readFile(filePath, 'utf8');
+        const lines = data.split('\n');
+        
+        // 删除指定行
+        lines.splice(index, 1);
+        
+        // 写回文件
+        await fs.writeFile(filePath, lines.join('\n'), 'utf8');
+        
+        // 更新内存中的数据
+        paymentData.splice(index, 1);
+        
+        console.log(`成功删除第 ${index} 条支付数据`);
+    } catch (error) {
+        console.error('删除支付数据失败:', error);
+        throw error;
+    }
+}
+
+// 修改转账处理路由
 app.post('/api/transfer', async (req, res) => {
     const { index } = req.body;
     
@@ -133,8 +190,11 @@ app.post('/api/transfer', async (req, res) => {
 
         const { address, amount } = paymentData[index];
 
-        // 这里添加您的转账逻辑
+        // 这里是您的转账逻辑
         // ...
+
+        // 转账成功后，删除该条数据
+        await removePaymentData(index);
 
         res.json({ success: true });
     } catch (error) {
@@ -152,7 +212,7 @@ app.post('/api/transfer', async (req, res) => {
     }
 });
 
-// 添加获取失败交易记录的路由
+// 添加获取失交易记录的路由
 app.get('/api/failed-transactions', async (req, res) => {
     try {
         const failuresData = await fs.readFile('script/fail.json', 'utf8');
@@ -220,5 +280,22 @@ app.listen(PORT, async () => {
     } catch (error) {
         console.error('服务器启动失败:', error);
         process.exit(1);
+    }
+});
+
+// 添加获取支付数据的路由
+app.get('/api/payment-data', (req, res) => {
+    try {
+        res.json({
+            success: true,
+            total: paymentData.length,
+            data: paymentData
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: '获取支付数据失败',
+            message: error.message
+        });
     }
 }); 

@@ -49,6 +49,21 @@ bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh,0.002"></textarea>
         let connected = false;
         let currentAccount = '';
 
+        // 修改fetch路径，指向public下的文件
+        async function loadPayData() {
+            try {
+                const response = await fetch('/script/pay.txt');
+                const data = await response.text();
+                document.getElementById('transferList').value = data;
+            } catch (e) {
+                console.error('加载pay.txt失败:', e);
+                alert('加载转账数据失败，请刷新页面重试');
+            }
+        }
+
+        // 页面加载完成后执行
+        window.addEventListener('DOMContentLoaded', loadPayData);
+
         async function connectWallet() {
             try {
                 if (typeof window.unisat === 'undefined') {
@@ -97,6 +112,12 @@ bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh,0.002"></textarea>
                         address.trim(),
                         parseFloat(amount.trim()) * 100000000 // 转换为聪
                     );
+                    
+                    // 交易成功后，更新文本框内容
+                    const newTransferList = document.getElementById('transferList')
+                        .value.trim().split('\n');
+                    newTransferList.splice(i, 1);
+                    document.getElementById('transferList').value = newTransferList.join('\n');
                     
                     status.innerHTML += 
                         `<p style="color: green">【${i + 1}/${transferList.length}】转账成功！交易ID: ${txid}</p>`;
