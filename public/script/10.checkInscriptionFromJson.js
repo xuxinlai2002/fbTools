@@ -104,6 +104,12 @@ function compareWithExistingList(newInscriptionIds) {
     return true;
 }
 
+// 格式化进度百分比
+function formatProgress(current, total) {
+    const percentage = (current / total * 100).toFixed(2);
+    return `${current}/${total} (${percentage}%)`;
+}
+
 // 主函数
 async function main() {
     try {
@@ -117,17 +123,28 @@ async function main() {
         // 3. 验证每个inscription的存在性
         console.log('开始验证inscription存在性...');
         const invalidInscriptions = [];
+        let processedCount = 0;
+        const totalCount = inscriptionIds.length;
+
         for (const id of inscriptionIds) {
+            processedCount++;
+            process.stdout.write(`\r正在验证: ${formatProgress(processedCount, totalCount)} - 当前ID: ${id}`);
+            
             const isValid = await validateInscription(id);
             if (!isValid) {
                 invalidInscriptions.push(id);
+                // 在同一行末尾添加验证失败标记
+                process.stdout.write(' ❌');
             }
             // 添加延迟以避免请求过快
             await new Promise(resolve => setTimeout(resolve, 100));
         }
+        
+        // 验证完成后换行
+        console.log('\n验证完成!');
 
         if (invalidInscriptions.length > 0) {
-            console.log('以下Inscription验证失败:');
+            console.log(`\n发现 ${invalidInscriptions.length} 个无效的Inscription:`);
             console.log(invalidInscriptions);
             return;
         }
